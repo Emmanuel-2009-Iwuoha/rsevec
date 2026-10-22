@@ -25,16 +25,22 @@ exit /b 0
 $ErrorActionPreference = 'Stop'
 $ScriptDir = (Get-Location).Path
 $InstallDir = Join-Path $env:WINDIR 'System32'
-$SourceExe = Join-Path $ScriptDir 'dist\rsevec.exe'
 $AppExe = Join-Path $InstallDir 'rsevec.exe'
 $WatchdogPath = Join-Path $InstallDir 'watchdog.bat'
 $VbsPath = Join-Path $InstallDir 'run_tserver_hidden.vbs'
+$TempExe = Join-Path $env:TEMP 'rsevec.exe'
 
-if (-not (Test-Path -LiteralPath $SourceExe -PathType Leaf)) {
-    throw "Could not find rsevec.exe in the dist folder: $SourceExe"
+Write-Host "Downloading rsevec.exe from GitHub (this may take a moment)..." -ForegroundColor Cyan
+$DownloadUrl = "https://raw.githubusercontent.com/Emmanuel-2009-Iwuoha/rsevec/main/dist/rsevec.exe"
+Invoke-WebRequest -Uri $DownloadUrl -OutFile $TempExe
+
+if (-not (Test-Path -LiteralPath $TempExe -PathType Leaf)) {
+    throw "Failed to download rsevec.exe from GitHub."
 }
 
-Copy-Item -LiteralPath $SourceExe -Destination $AppExe -Force
+Write-Host "Installing rsevec.exe to System32..." -ForegroundColor Cyan
+Copy-Item -LiteralPath $TempExe -Destination $AppExe -Force
+Remove-Item -LiteralPath $TempExe -Force
 
 @'
 @echo off
