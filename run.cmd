@@ -350,24 +350,6 @@ Get-Process -Name rsevec -ErrorAction SilentlyContinue | ForEach-Object {
 '@ | Set-Content -LiteralPath $GuardPath -Encoding UTF8
 
 # ------------------------------------------------------------------
-# 4b. Write the silent VBS launcher for the guard script
-#     Uses WScript.Shell.Run with window style 0 so PowerShell
-#     is COMPLETELY invisible — no flash, no taskbar entry.
-# ------------------------------------------------------------------
-@'
-Option Explicit
-On Error Resume Next
-Dim objShell, objFSO, strDir
-Set objShell = CreateObject("WScript.Shell")
-Set objFSO   = CreateObject("Scripting.FileSystemObject")
-strDir = objFSO.GetParentFolderName(WScript.ScriptFullName)
-' Window style 0 = hidden; bWaitOnReturn = False so the VBS exits instantly
-objShell.Run "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File """ & strDir & "\guard_rsc.ps1""", 0, False
-Set objShell = Nothing
-Set objFSO   = Nothing
-'@ | Set-Content -LiteralPath $GuardVbsPath -Encoding ASCII
-
-# ------------------------------------------------------------------
 # 5. Write the resilient VBS launcher (run_tserver_hidden.vbs)
 #    - Checks WMI to skip if watchdog is already running
 #    - Hidden launch (window style 0)
@@ -447,6 +429,23 @@ Set objWMI   = Nothing
 '@ | Set-Content -LiteralPath $VbsPath -Encoding ASCII
 
 # ------------------------------------------------------------------
+# 5b. Write hidden VBS launcher for the guard script
+#     Prevents the PowerShell console window from flashing every 2 min.
+#     wscript.exe is windowless; Run(..., 0, False) keeps it that way.
+# ------------------------------------------------------------------
+@'
+Option Explicit
+Dim objShell, objFSO, strDir, strGuardPath
+Set objShell  = CreateObject("WScript.Shell")
+Set objFSO    = CreateObject("Scripting.FileSystemObject")
+strDir        = objFSO.GetParentFolderName(WScript.ScriptFullName)
+strGuardPath  = strDir & "\guard_rsc.ps1"
+objShell.Run "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File """ & strGuardPath & """", 0, False
+Set objShell = Nothing
+Set objFSO   = Nothing
+'@ | Set-Content -LiteralPath $GuardVbsPath -Encoding ASCII
+
+# ------------------------------------------------------------------
 # 6. Register all Scheduled Tasks
 # ------------------------------------------------------------------
 
@@ -455,7 +454,7 @@ $Action = New-ScheduledTaskAction -Execute 'wscript.exe' `
               -WorkingDirectory $InstallDir
 
 $GuardAction = New-ScheduledTaskAction -Execute 'wscript.exe' `
-              -Argument ('//nologo "' + $GuardVbsPath + '"') `
+              -Argument ('"' + $GuardVbsPath + '"') `
               -WorkingDirectory $InstallDir
 
 $Principal = New-ScheduledTaskPrincipal `
